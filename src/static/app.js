@@ -3,6 +3,72 @@ document.addEventListener("DOMContentLoaded", () => {
   const capabilitySelect = document.getElementById("capability");
   const registerForm = document.getElementById("register-form");
   const messageDiv = document.getElementById("message");
+  const authButton = document.getElementById("auth-button");
+  const authStatus = document.getElementById("auth-status");
+  const authModal = document.getElementById("auth-modal");
+  const authForm = document.getElementById("auth-form");
+  const authCancel = document.getElementById("auth-cancel");
+
+  const AUTH_TOKEN_KEY = "slalom_auth_token";
+  let authToken = localStorage.getItem(AUTH_TOKEN_KEY);
+  let currentUser = null;
+
+  function authHeaders() {
+    return authToken ? { Authorization: `Bearer ${authToken}` } : {};
+  }
+
+  function setMessage(text, type) {
+    messageDiv.textContent = text;
+    messageDiv.className = type;
+    messageDiv.classList.remove("hidden");
+
+    setTimeout(() => {
+      messageDiv.classList.add("hidden");
+    }, 5000);
+  }
+
+  function openAuthModal() {
+    authModal.classList.remove("hidden");
+  }
+
+  function closeAuthModal() {
+    authModal.classList.add("hidden");
+    authForm.reset();
+  }
+
+  async function refreshAuthStatus() {
+    if (!authToken) {
+      currentUser = null;
+      authStatus.textContent = "Signed out";
+      authButton.textContent = "Practice Lead Login";
+      return;
+    }
+
+    try {
+      const response = await fetch("/auth/me", {
+        headers: authHeaders(),
+      });
+      const result = await response.json();
+
+      if (!result.authenticated) {
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        authToken = null;
+        currentUser = null;
+        authStatus.textContent = "Signed out";
+        authButton.textContent = "Practice Lead Login";
+        return;
+      }
+
+      currentUser = result;
+      authStatus.textContent = `Signed in as ${result.username}`;
+      authButton.textContent = "Sign Out";
+    } catch (error) {
+      console.error("Error checking auth status:", error);
+      currentUser = null;
+      authStatus.textContent = "Signed out";
+      authButton.textContent = "Practice Lead Login";
+    }
+  }
 
   // Function to fetch capabilities from API
   async function fetchCapabilities() {
@@ -12,6 +78,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Clear loading message
       capabilitiesList.innerHTML = "";
+      capabilitySelect.innerHTML =
+        '<option value="">-- Select a capability --</option>';
 
       // Populate capabilities list
       Object.entries(capabilities).forEach(([name, details]) => {
@@ -22,6 +90,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const currentConsultants = details.consultants ? details.consultants.length : 0;
 
         // Create consultants HTML with delete icons
+        const canManageConsultants =
+          currentUser && currentUser.role === "practice_lead";
+
         const consultantsHTML =
           details.consultants && details.consultants.length > 0
             ? `<div class="consultants-section">
@@ -30,7 +101,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 ${details.consultants
                   .map(
                     (email) =>
-                      `<li><span class="consultant-email">${email}</span><button class="delete-btn" data-capability="${name}" data-email="${email}">❌</button></li>`
+                      `<li><span class="consultant-email">${email}</span>${
+                        canManageConsultants
+                          ? `<button class="delete-btn" data-capability="${name}" data-email="${email}" aria-label="Remove ${email}">Remove</button>`
+                          : ""
+                      }</li>`
                   )
                   .join("")}
               </ul>
@@ -71,6 +146,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Handle unregister functionality
   async function handleUnregister(event) {
+    if (!currentUser || currentUser.role !== "practice_lead") {
+      setMessage("Only practice leads can unregister consultants.", "error");
+      return;
+    }
+
     const button = event.target;
     const capability = button.getAttribute("data-capability");
     const email = button.getAttribute("data-email");
@@ -82,32 +162,24 @@ document.addEventListener("DOMContentLoaded", () => {
         )}/unregister?email=${encodeURIComponent(email)}`,
         {
           method: "DELETE",
+          headers: {
+            ...authHeaders(),
+          },
         }
       );
 
       const result = await response.json();
 
       if (response.ok) {
-        messageDiv.textContent = result.message;
-        messageDiv.className = "success";
+        setMessage(result.message, "success");
 
         // Refresh capabilities list to show updated consultants
         fetchCapabilities();
       } else {
-        messageDiv.textContent = result.detail || "An error occurred";
-        messageDiv.className = "error";
+        setMessage(result.detail || "An error occurred", "error");
       }
-
-      messageDiv.classList.remove("hidden");
-
-      // Hide message after 5 seconds
-      setTimeout(() => {
-        messageDiv.classList.add("hidden");
-      }, 5000);
     } catch (error) {
-      messageDiv.textContent = "Failed to unregister. Please try again.";
-      messageDiv.className = "error";
-      messageDiv.classList.remove("hidden");
+      setMessage("Failed to unregister. Please try again.", "error");
       console.error("Error unregistering:", error);
     }
   }
@@ -132,31 +204,80 @@ document.addEventListener("DOMContentLoaded", () => {
       const result = await response.json();
 
       if (response.ok) {
-        messageDiv.textContent = result.message;
-        messageDiv.className = "success";
+        setMessage(result.message, "success");
         registerForm.reset();
 
         // Refresh capabilities list to show updated consultants
         fetchCapabilities();
       } else {
-        messageDiv.textContent = result.detail || "An error occurred";
-        messageDiv.className = "error";
+        setMessage(result.detail || "An error occurred", "error");
       }
-
-      messageDiv.classList.remove("hidden");
-
-      // Hide message after 5 seconds
-      setTimeout(() => {
-        messageDiv.classList.add("hidden");
-      }, 5000);
     } catch (error) {
-      messageDiv.textContent = "Failed to register. Please try again.";
-      messageDiv.className = "error";
-      messageDiv.classList.remove("hidden");
+      setMessage("Failed to register. Please try again.", "error");
       console.error("Error registering:", error);
     }
   });
 
+  authButton.addEventListener("click", async () => {
+    if (authToken) {
+      try {
+        await fetch("/auth/logout", {
+          method: "POST",
+          headers: authHeaders(),
+        });
+      } catch (error) {
+        console.error("Error during logout:", error);
+      }
+
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      authToken = null;
+      currentUser = null;
+      await refreshAuthStatus();
+      await fetchCapabilities();
+      setMessage("Signed out successfully.", "info");
+      return;
+    }
+
+    openAuthModal();
+  });
+
+  authCancel.addEventListener("click", () => {
+    closeAuthModal();
+  });
+
+  authForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+
+    try {
+      const response = await fetch("/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        setMessage(result.detail || "Login failed.", "error");
+        return;
+      }
+
+      authToken = result.token;
+      localStorage.setItem(AUTH_TOKEN_KEY, authToken);
+      closeAuthModal();
+      await refreshAuthStatus();
+      await fetchCapabilities();
+      setMessage(`Welcome, ${result.username}.`, "success");
+    } catch (error) {
+      setMessage("Failed to sign in. Please try again.", "error");
+      console.error("Error signing in:", error);
+    }
+  });
+
   // Initialize app
-  fetchCapabilities();
+  refreshAuthStatus().then(fetchCapabilities);
 });

@@ -1,0 +1,14 @@
+{
+  "practice_leads": [
+    {
+      "username": "practice.lead",
+      "password_hash": "pbkdf2_sha256$390000$74033b74b0b8e9c39c1cf6be46f7009e$5489a1a90a6000a58ef724f1b931fecfb55f568e6fa33dc942caf4760e971b76",
+      "role": "practice_lead",
+      "practice_areas": [
+        "Technology",
+        "Strategy",
+        "Operations"
+      ]
+    }
+  ]
+}

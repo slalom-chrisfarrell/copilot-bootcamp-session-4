@@ -7,6 +7,11 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <div class="auth-toolbar">
+      <div id="auth-status" class="auth-status">Signed out</div>
+      <button id="auth-button" class="auth-button">Practice Lead Login</button>
+    </div>
+
     <header>
       <div class="header-content">
         <img src="https://colby-timm.github.io/images/byte-teacher.png" alt="Byte mascot" class="mascot" />
@@ -52,6 +57,26 @@
         <p>&copy; 2025 Slalom • Building Better Tomorrow</p>
       </div>
     </footer>
+
+    <div id="auth-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+      <div class="modal-content">
+        <h3 id="auth-modal-title">Practice Lead Sign In</h3>
+        <form id="auth-form">
+          <div class="form-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" required placeholder="practice.lead" />
+          </div>
+          <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" required placeholder="Password" />
+          </div>
+          <div class="modal-actions">
+            <button type="submit">Sign In</button>
+            <button type="button" id="auth-cancel" class="secondary-button">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <script src="app.js"></script>
   </body>
