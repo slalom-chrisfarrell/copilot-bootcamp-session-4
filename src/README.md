@@ -12,6 +12,8 @@ A FastAPI application that enables Slalom consultants to register their capabili
 - Register consultant expertise and availability
 - Track skill levels and certifications
 - Manage capability capacity and team assignments
+- Practice lead authentication with role-based permissions
+- Audit logging for authentication and capability changes
 
 ## Getting Started
 
@@ -38,7 +40,25 @@ A FastAPI application that enables Slalom consultants to register their capabili
 | ------ | ----------------------------------------------------------------- | ------------------------------------------------------------------- |
 | GET    | `/capabilities`                                                   | Get all capabilities with details and current consultant assignments |
 | POST   | `/capabilities/{capability_name}/register?email=consultant@slalom.com` | Register consultant for a capability                     |
-| DELETE | `/capabilities/{capability_name}/unregister?email=consultant@slalom.com` | Unregister consultant from a capability              |
+| DELETE | `/capabilities/{capability_name}/unregister?email=consultant@slalom.com` | Unregister consultant from a capability (practice lead only) |
+| POST   | `/auth/login`                                                     | Practice lead login; returns bearer token |
+| POST   | `/auth/logout`                                                    | Invalidate current bearer token |
+| GET    | `/auth/me`                                                        | Check authentication/session status |
+
+## Practice Lead Login
+
+- The app loads practice lead credentials from `src/practice_leads.json`.
+- Default username: `practice.lead`
+- Default password (for this learning exercise): `ChangeMe123!`
+- The frontend stores the bearer token in browser local storage for session continuity.
+
+Use the "Practice Lead Login" button in the top-right corner to sign in. Only signed-in practice leads can unregister consultants.
+
+## Security Notes
+
+- Passwords are stored as PBKDF2-SHA256 hashes.
+- Sessions are short-lived bearer tokens stored in-memory on the server.
+- Security events are appended to `src/audit.log` (ignored by git due to `*.log`).
 
 ## Data Model
 
